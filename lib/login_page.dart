@@ -1,13 +1,25 @@
 import 'package:flutter/material.dart';
-
 import 'database_helper.dart';
+import 'user_model.dart';
 
 final _emailController = TextEditingController();
 final _passwordController = TextEditingController();
 
-class LoginPage extends StatelessWidget {
-  const LoginPage({super.key});
+class LoginPage extends StatefulWidget {
+  final void Function(BuildContext) onLoginSuccess;
+  final void Function(bool) onLoginProcess;
 
+  const LoginPage({
+    super.key,
+    required this.onLoginSuccess,
+    required this.onLoginProcess,
+  });
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -29,18 +41,13 @@ class LoginPage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo
               Image.network(
-                'https://ibb.co.com/9NTTwtt', // Ganti dengan URL gambar logo kamu
+                'https://ibb.co/9NTTwtt', // Ganti dengan URL gambar logo kamu
                 height: 100,
               ),
-              // Kita akan menambahkan widget lain di bawah ini
-              // Field Input Email
-              const SizedBox(
-                  height: 30), // Menambahkan jarak antara logo dan field input
+              const SizedBox(height: 30),
               Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20.0), // Menambahkan margin horizontal
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
                 child: TextField(
                   controller: _emailController,
                   decoration: InputDecoration(
@@ -55,10 +62,8 @@ class LoginPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 15),
-              // Field Input Password
               Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20.0), // Menambahkan margin horizontal
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
                 child: TextField(
                   controller: _passwordController,
                   obscureText: true,
@@ -73,58 +78,59 @@ class LoginPage extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(
-                  height:
-                      25), // Menambahkan jarak antara field input password dan tombol login
-              // Tombol Login
+              const SizedBox(height: 25),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      Colors.blue, // Mengatur warna latar belakang tombol
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 50, vertical: 15), // Mengatur padding tombol
-                  textStyle: const TextStyle(
-                      fontSize: 18), // Mengatur ukuran teks tombol
+                  backgroundColor: Colors.blue,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+                  textStyle: const TextStyle(fontSize: 18),
                   shape: RoundedRectangleBorder(
-                    // Membuat tombol membulat
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
                 onPressed: () async {
-                  final contextToUse = context;
-                  // Tambahkan logika login di sini nanti
-                  String email = _emailController
-                      .text; // Mendapatkan teks dari field input email
-                  String password = _passwordController
-                      .text; // Mendapatkan teks dari field input password
-                  // Validasi input (opsional, tetapi disarankan)
+                  String email = _emailController.text;
+                  String password = _passwordController.text;
                   if (email.isEmpty || password.isEmpty) {
-                    // Tampilkan pesan kesalahan atau snackbar
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Email dan password harus diisi.')),
+                    );
                     return;
                   }
-
-                  // Periksa apakah pengguna adalah admin
+                  widget.onLoginProcess(true);
                   bool isAdminUser =
                       await DatabaseHelper.instance.isAdmin(email);
                   if (isAdminUser) {
-                    // Navigasi ke halaman admin (misalnya, halaman User List)
                     debugPrint('Login berhasil sebagai admin!');
-                    // Tambahkan kode navigasi di sini
-
-                    // Periksa apakah widget masih terpasang
-                    Navigator.push(
-                      // ignore: use_build_context_synchronously
-                      context,
-                      MaterialPageRoute(builder: (context) => const UserList()),
-                    );
+                    widget.onLoginSuccess(context);
                   } else {
-                    // Periksa apakah pengguna ada di database
+                    User? user =
+                        await DatabaseHelper.instance.getUserByEmail(email);
+                    if (user != null && user.password == password) {
+                      debugPrint('Login berhasil sebagai pengguna!');
+                      widget.onLoginSuccess(context);
+                    } else {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Login Gagal'),
+                          content: const Text('Email atau password salah.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
                   }
+                  widget.onLoginProcess(false);
                 },
-                child: const Text('Login',
-                    style: TextStyle(
-                        color: Colors
-                            .white)), // Mengatur teks tombol dengan warna putih
+                child:
+                    const Text('Login', style: TextStyle(color: Colors.white)),
               ),
             ],
           ),

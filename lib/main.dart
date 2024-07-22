@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:myapp/login_page.dart';
+import 'package:myapp/home_page.dart'; // Import HomePage
+
 void main() {
   runApp(const MyApp());
 }
-// Suggested code may be subject to a license. Learn more: ~LicenseLog:841275603.
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -11,11 +12,22 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Pemantau Pesanan',
+      title: 'Melintu Desain',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const LoginPage(), // Ganti dengan nama widget halaman login kamu
+      home: LoginPage(
+        onLoginSuccess: (context) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePage()),
+          );
+        },
+        onLoginProcess: (bool isLoading) {
+          if (isLoading) {
+          } else {}
+        },
+      ),
     );
   }
 }
