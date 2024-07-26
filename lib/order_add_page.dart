@@ -61,9 +61,9 @@ class OrderAddPageState extends State<OrderAddPage> {
   }
 
   Future<void> _updateFotoProgress(
-      int orderId, String newFotoProgressURL) async {
+      int orderId, String newFotoProgressURL, String status) async {
     await DatabaseHelper.instance
-        .updateFotoProgress(orderId, newFotoProgressURL);
+        .updateFotoProgress(orderId, newFotoProgressURL, status);
   }
 
   @override
@@ -138,7 +138,7 @@ class OrderAddPageState extends State<OrderAddPage> {
                 DropdownButtonFormField<String>(
                   value: _status,
                   decoration: const InputDecoration(labelText: 'Status'),
-                  items: ['Pending', 'Completed', 'Cancelled']
+                  items: ['Pending', 'Process', 'Completed', 'Cancelled']
                       .map((status) => DropdownMenuItem(
                             value: status,
                             child: Text(status),
@@ -268,9 +268,9 @@ class OrderAddPageState extends State<OrderAddPage> {
                         final newFotoProgressURL = _progressImage?.path;
                         if (oldFotoProgressURL != newFotoProgressURL) {
                           await _updateFotoProgress(
-                            widget.order!.id,
-                            newFotoProgressURL ?? '',
-                          );
+                              widget.order!.id,
+                              newFotoProgressURL ?? '',
+                              widget.order!.status ?? '');
                         }
                         await DatabaseHelper.instance.updateOrder(newOrder);
                       } else {

@@ -103,6 +103,7 @@ class DatabaseHelper {
       orderId INTEGER NOT NULL,
       oldFotoProgressURL TEXT,
       newFotoProgressURL TEXT,
+      status TEXT,
       updateDate TEXT NOT NULL,
       FOREIGN KEY (orderId) REFERENCES $_orderTable ($_orderColumnId)
     )
@@ -374,7 +375,8 @@ class DatabaseHelper {
     });
   }
 
-  Future<int> updateFotoProgress(int orderId, String newFotoProgressURL) async {
+  Future<int> updateFotoProgress(
+      int orderId, String newFotoProgressURL, String status) async {
     Database db = await instance.database;
 
     // Ambil data order sebelumnya
@@ -390,6 +392,7 @@ class DatabaseHelper {
       _orderTable,
       {
         _orderColumnFotoProgressURL: newFotoProgressURL,
+        _orderColumnStatus: status
       },
       where: '$_orderColumnId = ?',
       whereArgs: [orderId],
@@ -399,6 +402,7 @@ class DatabaseHelper {
     await db.insert('order_progress_history', {
       'orderId': orderId,
       'oldFotoProgressURL': oldFotoProgressURL,
+      'status': status,
       'newFotoProgressURL': newFotoProgressURL,
       'updateDate': DateTime.now().toIso8601String(),
     });

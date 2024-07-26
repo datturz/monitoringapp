@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'order_model.dart';
 import 'database_helper.dart';
+import 'package:photo_view/photo_view.dart';
 
 class OrderDetailPage extends StatefulWidget {
   final Order order;
@@ -11,6 +12,23 @@ class OrderDetailPage extends StatefulWidget {
 
   @override
   State<OrderDetailPage> createState() => _OrderDetailPageState();
+}
+
+class FullScreenImage extends StatelessWidget {
+  final String fotoURL;
+  const FullScreenImage({super.key, required this.fotoURL});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Foto Progress'),
+        backgroundColor: Colors.black,
+      ),
+      body: PhotoView(
+        imageProvider: FileImage(File(fotoURL)),
+      ),
+    );
+  }
 }
 
 class _OrderDetailPageState extends State<OrderDetailPage> {
@@ -121,12 +139,23 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       ],
                     ),
                     title: Text(
-                        '${intlDate(DateTime.parse(updateDate))} - ${isSuccess ? 'Berhasil' : 'Gagal'}'),
+                        '${intlDate(DateTime.parse(updateDate))} - ${_fotoProgressHistory[index]['status']} '),
                     subtitle: isSuccess
-                        ? SizedBox(
-                            width: 80,
-                            height: 80,
-                            child: Image.file(File(fotoURL)),
+                        ? GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      FullScreenImage(fotoURL: fotoURL),
+                                ),
+                              );
+                            },
+                            child: SizedBox(
+                              width: 80,
+                              height: 80,
+                              child: Image.file(File(fotoURL)),
+                            ),
                           )
                         : null,
                   );
