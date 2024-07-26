@@ -4,6 +4,9 @@ class Order {
   final List<OrderItem> items;
   final DateTime orderDate;
   final double totalPrice;
+  final String? productName;
+  final int? quantity;
+  final double? price;
   final String?
       nomorFaktur; // Opsional, jika nomor faktur tidak selalu tersedia
   final String? status;
@@ -11,18 +14,22 @@ class Order {
       fotoProdukURL; // Opsional, jika foto produk tidak selalu tersedia
   final String?
       fotoProgressURL; // Opsional, jika foto progress tidak selalu tersedia
+  final String? videoProgressURL;
 
-  Order({
-    required this.id,
-    required this.customerName,
-    required this.items,
-    required this.orderDate,
-    required this.totalPrice,
-    this.nomorFaktur,
-    this.status,
-    this.fotoProdukURL,
-    this.fotoProgressURL,
-  });
+  Order(
+      {required this.id,
+      required this.customerName,
+      required this.items,
+      required this.orderDate,
+      required this.totalPrice,
+      this.nomorFaktur,
+      this.status,
+      this.fotoProdukURL,
+      this.fotoProgressURL,
+      this.videoProgressURL,
+      this.productName,
+      this.quantity,
+      this.price});
 
   // Konversi Map ke objek Order
   factory Order.fromMap(Map<String, dynamic> map) {
@@ -35,7 +42,11 @@ class Order {
       nomorFaktur: map['nomorFaktur'],
       fotoProdukURL: map['fotoProdukURL'],
       fotoProgressURL: map['fotoProgressURL'],
-      items: [], // Items perlu diambil dari tabel terpisah
+      videoProgressURL: map['videoProgressURL'],
+      items: [], // Items perlu diambil dari tabel terpisahi
+      productName: map['productName'],
+      quantity: map['quantity'],
+      price: map['price'],
     );
   }
 
@@ -50,6 +61,10 @@ class Order {
       'nomorFaktur': nomorFaktur,
       'fotoProdukURL': fotoProdukURL,
       'fotoProgressURL': fotoProgressURL,
+      'videoProgressURL': videoProgressURL,
+      'productName': productName,
+      'quantity': quantity,
+      'price': price,
     };
   }
 }
@@ -61,7 +76,6 @@ class OrderItem {
   final String? fotoProduk; // Opsional, jika foto produk tidak selalu tersedia
   final String?
       fotoProgress; // Opsional, jika foto progress tidak selalu tersedia
-
   OrderItem({
     required this.productName,
     required this.quantity,

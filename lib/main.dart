@@ -16,18 +16,18 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: LoginPage(
-        onLoginSuccess: (context) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const HomePage()),
-          );
-        },
-        onLoginProcess: (bool isLoading) {
-          if (isLoading) {
-          } else {}
-        },
-      ),
+      initialRoute: '/login',
+      routes: {
+        '/login': (context) => LoginPage(
+              onLoginSuccess: (context) {
+                Navigator.pushReplacementNamed(context, '/home');
+              },
+              onLoginProcess: (bool isLoading) {
+                // Handle loading state here
+              },
+            ),
+        '/home': (context) => const HomePage(),
+      },
     );
   }
 }

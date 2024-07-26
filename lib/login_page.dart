@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'database_helper.dart';
 import 'user_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final _emailController = TextEditingController();
 final _passwordController = TextEditingController();
@@ -100,17 +101,24 @@ class _LoginPageState extends State<LoginPage> {
                     return;
                   }
                   widget.onLoginProcess(true);
-                  bool isAdminUser =
+
+                  Map<String, dynamic>? adminInfo =
                       await DatabaseHelper.instance.isAdmin(email);
-                  if (isAdminUser) {
+
+                  if (adminInfo != null) {
                     debugPrint('Login berhasil sebagai admin!');
-                    widget.onLoginSuccess(context);
+                    _saveUserId(adminInfo['id']); // Simpan userId 0 untuk admin
+                    Navigator.pushReplacementNamed(
+                        context, '/home'); // Arahkan ke halaman home
                   } else {
                     User? user =
                         await DatabaseHelper.instance.getUserByEmail(email);
+                    debugPrint('User ditemukan: ${user != null}');
                     if (user != null && user.password == password) {
                       debugPrint('Login berhasil sebagai pengguna!');
-                      widget.onLoginSuccess(context);
+                      _saveUserId(user.id);
+                      Navigator.pushReplacementNamed(
+                          context, '/home'); // Arahkan ke halaman home
                     } else {
                       showDialog(
                         context: context,
@@ -137,5 +145,12 @@ class _LoginPageState extends State<LoginPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _saveUserId(int? userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (userId != null) {
+      await prefs.setInt('userId', userId);
+    }
   }
 }

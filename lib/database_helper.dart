@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'user_model.dart';
@@ -24,9 +25,12 @@ class DatabaseHelper {
   static const _orderColumnTotalPrice = 'totalPrice';
   static const _orderColumnOrderDate = 'orderDate';
   static const _orderColumnStatus = 'status';
-  static const _orderColumnNomorFaktur = 'nomorFaktur';
   static const _orderColumnFotoProdukURL = 'fotoProdukURL';
   static const _orderColumnFotoProgressURL = 'fotoProgressURL';
+  static const _orderColumnProductName = 'productName';
+  static const _orderColumnQuantity = 'quantity';
+  static const _orderColumnPrice = 'price';
+  static const _orderColumnVideoProgressURL = 'videoProgressURL';
 
   // Order Item Table
   static const _orderItemTable = 'orderItems';
@@ -58,41 +62,54 @@ class DatabaseHelper {
 
   Future<void> _onCreate(Database db, int version) async {
     await db.execute('''
-    CREATE TABLE $table (
-      $columnId INTEGER PRIMARY KEY AUTOINCREMENT,
-      $columnEmail TEXT NOT NULL,
-      $columnPassword TEXT NOT NULL,
-      $columnRole TEXT NOT NULL,
-      $columnFoto TEXT NOT NULL
-    )
-  ''');
+      CREATE TABLE $table (
+        $columnId INTEGER PRIMARY KEY AUTOINCREMENT,
+        $columnEmail TEXT NOT NULL,
+        $columnPassword TEXT NOT NULL,
+        $columnRole TEXT NOT NULL,
+        $columnFoto TEXT NOT NULL
+      )
+    ''');
     await db.execute('''
-    CREATE TABLE $_orderTable (
-      $_orderColumnId INTEGER PRIMARY KEY AUTOINCREMENT,
-      $_orderColumnCustomerName TEXT NOT NULL,
-      $_orderColumnTotalPrice REAL NOT NULL,
-      $_orderColumnOrderDate TEXT NOT NULL,
-      $_orderColumnStatus TEXT NOT NULL,
-      $_orderColumnNomorFaktur TEXT,
-      $_orderColumnFotoProdukURL TEXT,
-      $_orderColumnFotoProgressURL TEXT
-    )
-  ''');
+      CREATE TABLE $_orderTable (
+        $_orderColumnId INTEGER PRIMARY KEY AUTOINCREMENT,
+        $_orderColumnCustomerName TEXT NOT NULL,
+        $_orderColumnTotalPrice REAL NOT NULL,
+        $_orderColumnOrderDate TEXT NOT NULL,
+        $_orderColumnStatus TEXT NOT NULL,
+        $_orderColumnFotoProdukURL TEXT,
+        $_orderColumnFotoProgressURL TEXT,
+        $_orderColumnProductName TEXT NOT NULL,
+        $_orderColumnQuantity INTEGER NOT NULL,
+        $_orderColumnPrice REAL NOT NULL,
+        $_orderColumnVideoProgressURL TEXT
+      )
+    ''');
     await db.execute('''
-    CREATE TABLE $_orderItemTable (
-      $_orderItemColumnId INTEGER PRIMARY KEY AUTOINCREMENT,
-      $_orderItemColumnOrderId INTEGER NOT NULL,
-      $_orderItemColumnProductName TEXT NOT NULL,
-      $_orderItemColumnQuantity INTEGER NOT NULL,
-      $_orderItemColumnPrice REAL NOT NULL,
-      $_orderItemColumnFotoProduk TEXT,
-      $_orderItemColumnFotoProgress TEXT,
-      FOREIGN KEY ($_orderItemColumnOrderId) REFERENCES $_orderTable ($_orderColumnId)
+      CREATE TABLE $_orderItemTable (
+        $_orderItemColumnId INTEGER PRIMARY KEY AUTOINCREMENT,
+        $_orderItemColumnOrderId INTEGER NOT NULL,
+        $_orderItemColumnProductName TEXT NOT NULL,
+        $_orderItemColumnQuantity INTEGER NOT NULL,
+        $_orderItemColumnPrice REAL NOT NULL,
+        $_orderItemColumnFotoProduk TEXT,
+        $_orderItemColumnFotoProgress TEXT,
+        FOREIGN KEY ($_orderItemColumnOrderId) REFERENCES $_orderTable ($_orderColumnId)
+      )
+    ''');
+    await db.execute('''
+    CREATE TABLE order_progress_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      orderId INTEGER NOT NULL,
+      oldFotoProgressURL TEXT,
+      newFotoProgressURL TEXT,
+      updateDate TEXT NOT NULL,
+      FOREIGN KEY (orderId) REFERENCES $_orderTable ($_orderColumnId)
     )
   ''');
     await db.insert(table, {
       columnEmail: 'admin@melintu.com',
-      columnPassword: 'password', //
+      columnPassword: 'password', // Ganti dengan password yang sesuai
       columnRole: 'admin',
       columnFoto: 'default.png'
     });
@@ -103,21 +120,40 @@ class DatabaseHelper {
     return await db.insert(table, user.toMap());
   }
 
-  Future<bool> isAdmin(String email) async {
+  Future<Map<String, dynamic>?> isAdmin(String email) async {
     Database db = await instance.database;
     List<Map<String, dynamic>> result =
         await db.query(table, where: '$columnEmail = ?', whereArgs: [email]);
 
     if (result.isNotEmpty && result.first['role'] == 'admin') {
-      return true;
+      debugPrint('isAdmin: true');
+      return {
+        'id': result.first['id'],
+        'email': result.first['email'],
+        'role': result.first['role'],
+        // Tambahkan atribut lain jika diperlukan
+      };
     }
-    return false;
+    debugPrint('isAdmin: false');
+    return null;
   }
 
   Future<User?> getUserByEmail(String email) async {
     Database db = await instance.database;
     List<Map<String, dynamic>> maps =
         await db.query(table, where: '$columnEmail = ?', whereArgs: [email]);
+    debugPrint('getUserByEmail query result: $maps');
+    if (maps.isNotEmpty) {
+      return User.fromMap(maps.first);
+    }
+    return null;
+  }
+
+  Future<User?> getUserById(int id) async {
+    Database db = await instance.database;
+    List<Map<String, dynamic>> maps =
+        await db.query(table, where: '$columnId = ?', whereArgs: [id]);
+    debugPrint('getUserById query result: $maps');
     if (maps.isNotEmpty) {
       return User.fromMap(maps.first);
     }
@@ -140,7 +176,7 @@ class DatabaseHelper {
   Future<User?> getUserProfile(int userId) async {
     final db = await database;
     final maps = await db.query(
-      'user', // Replace with your table name
+      table,
       where: 'id = ?',
       whereArgs: [userId],
     );
@@ -162,20 +198,28 @@ class DatabaseHelper {
       return User.fromMap(maps[i]);
     });
   }
-  // order
+
+  // Order Methods
 
   Future<int> insertOrder(Order order) async {
     Database db = await instance.database;
     String orderDateIso = order.orderDate.toIso8601String();
-    return await db.insert(_orderTable, {
+    int orderIds = await db.insert(_orderTable, {
       _orderColumnCustomerName: order.customerName,
       _orderColumnTotalPrice: order.totalPrice,
       _orderColumnOrderDate: orderDateIso,
       _orderColumnStatus: order.status,
-      _orderColumnNomorFaktur: order.nomorFaktur,
+      _orderColumnProductName: order.productName,
+      _orderColumnQuantity: order.quantity,
+      _orderColumnPrice: order.price,
       _orderColumnFotoProdukURL: order.fotoProdukURL,
       _orderColumnFotoProgressURL: order.fotoProgressURL,
+      _orderColumnVideoProgressURL: order.videoProgressURL,
     });
+    for (var item in order.items) {
+      await insertOrderItem(item, orderIds);
+    }
+    return orderIds;
   }
 
   Future<List<Order>> getAllOrders() async {
@@ -189,10 +233,13 @@ class DatabaseHelper {
         totalPrice: maps[i][_orderColumnTotalPrice],
         orderDate: orderDate,
         status: maps[i][_orderColumnStatus],
-        nomorFaktur: maps[i][_orderColumnNomorFaktur],
         fotoProdukURL: maps[i][_orderColumnFotoProdukURL],
         fotoProgressURL: maps[i][_orderColumnFotoProgressURL],
-        items: [], // Kamu perlu mengambil item order secara terpisah jika menggunakan tabel _orderItemTable
+        videoProgressURL: maps[i][_orderColumnVideoProgressURL],
+        price: maps[i][_orderColumnPrice],
+        productName: maps[i][_orderColumnProductName],
+        quantity: maps[i][_orderColumnQuantity],
+        items: [], // Ambil item order secara terpisah jika menggunakan tabel _orderItemTable
       );
     });
   }
@@ -212,10 +259,9 @@ class DatabaseHelper {
         totalPrice: maps[0][_orderColumnTotalPrice],
         orderDate: orderDate,
         status: maps[0][_orderColumnStatus],
-        nomorFaktur: maps[0][_orderColumnNomorFaktur],
         fotoProdukURL: maps[0][_orderColumnFotoProdukURL],
         fotoProgressURL: maps[0][_orderColumnFotoProgressURL],
-        items: [], // Kamu perlu mengambil item order secara terpisah jika menggunakan tabel _orderItemTable
+        items: [], // Ambil item order secara terpisah jika menggunakan tabel _orderItemTable
       );
     }
     return null;
@@ -231,9 +277,12 @@ class DatabaseHelper {
         _orderColumnTotalPrice: order.totalPrice,
         _orderColumnOrderDate: orderDateIso,
         _orderColumnStatus: order.status,
-        _orderColumnNomorFaktur: order.nomorFaktur,
         _orderColumnFotoProdukURL: order.fotoProdukURL,
         _orderColumnFotoProgressURL: order.fotoProgressURL,
+        _orderColumnVideoProgressURL: order.videoProgressURL,
+        _orderColumnProductName: order.productName,
+        _orderColumnQuantity: order.quantity,
+        _orderColumnPrice: order.price,
       },
       where: '$_orderColumnId = ?',
       whereArgs: [order.id],
@@ -294,11 +343,76 @@ class DatabaseHelper {
         totalPrice: maps[i][_orderColumnTotalPrice],
         orderDate: orderDate,
         status: maps[i][_orderColumnStatus],
-        nomorFaktur: maps[i][_orderColumnNomorFaktur],
         fotoProdukURL: maps[i][_orderColumnFotoProdukURL],
         fotoProgressURL: maps[i][_orderColumnFotoProgressURL],
-        items: [], // Kamu perlu mengambil item order secara terpisah jika menggunakan tabel _orderItemTable
+        items: [], // Ambil item order secara terpisah jika menggunakan tabel _orderItemTable
       );
     });
+  }
+
+  Future<List<Order>> getOrdersByEmail(String email) async {
+    Database db = await instance.database;
+    List<Map<String, dynamic>> maps = await db.query(
+      _orderTable,
+      where:
+          '$_orderColumnCustomerName = ?', // Ganti dengan kolom yang sesuai jika perlu
+      whereArgs: [email],
+    );
+
+    return List.generate(maps.length, (i) {
+      DateTime orderDate = DateTime.parse(maps[i][_orderColumnOrderDate]);
+      return Order(
+        id: maps[i][_orderColumnId],
+        customerName: maps[i][_orderColumnCustomerName],
+        totalPrice: maps[i][_orderColumnTotalPrice],
+        orderDate: orderDate,
+        status: maps[i][_orderColumnStatus],
+        fotoProdukURL: maps[i][_orderColumnFotoProdukURL],
+        fotoProgressURL: maps[i][_orderColumnFotoProgressURL],
+        items: [], // Ambil item order secara terpisah jika menggunakan tabel _orderItemTable
+      );
+    });
+  }
+
+  Future<int> updateFotoProgress(int orderId, String newFotoProgressURL) async {
+    Database db = await instance.database;
+
+    // Ambil data order sebelumnya
+    Order? order = await getOrderById(orderId);
+    if (order == null) {
+      return 0; // Order tidak ditemukan
+    }
+
+    String oldFotoProgressURL = order.fotoProgressURL ?? '';
+
+    // Perbarui foto progress di tabel orders
+    int result = await db.update(
+      _orderTable,
+      {
+        _orderColumnFotoProgressURL: newFotoProgressURL,
+      },
+      where: '$_orderColumnId = ?',
+      whereArgs: [orderId],
+    );
+
+    // Simpan riwayat pembaruan ke tabel order_progress_history
+    await db.insert('order_progress_history', {
+      'orderId': orderId,
+      'oldFotoProgressURL': oldFotoProgressURL,
+      'newFotoProgressURL': newFotoProgressURL,
+      'updateDate': DateTime.now().toIso8601String(),
+    });
+
+    return result;
+  }
+
+  Future<List<Map<String, dynamic>>> getFotoProgressHistory(int orderId) async {
+    debugPrint('ini tereksekusi atau tidak');
+    Database db = await instance.database;
+    return await db.query(
+      'order_progress_history',
+      where: 'orderId = ?',
+      whereArgs: [orderId],
+    );
   }
 }

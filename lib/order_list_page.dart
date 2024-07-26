@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'order_model.dart';
+import 'user_model.dart';
 import 'database_helper.dart';
 import 'order_detail_page.dart';
 import 'order_add_page.dart';
@@ -32,7 +34,17 @@ class OrderListPageState extends State<OrderListPage> {
     });
 
     try {
-      final orders = await DatabaseHelper.instance.getAllOrders();
+      List<Order> orders;
+      if (_isAdmin) {
+        orders = await DatabaseHelper.instance.getAllOrders();
+      } else {
+        final prefs = await SharedPreferences.getInstance();
+        final userId = prefs.getInt('userId');
+        User? users = await DatabaseHelper.instance.getUserById(userId!);
+        orders = await DatabaseHelper.instance.getOrdersByEmail(users!.email);
+      }
+
+      if (orders.isEmpty) {}
       setState(() {
         _orders = orders;
         _filteredOrders = orders;
@@ -49,9 +61,19 @@ class OrderListPageState extends State<OrderListPage> {
   }
 
   Future<void> _checkAdminStatus() async {
-    setState(() {
-      _isAdmin = true; // Ganti dengan hasil pemeriksaan peran
-    });
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('userId');
+
+    if (userId != null) {
+      final user = await DatabaseHelper.instance.getUserById(userId);
+      setState(() {
+        _isAdmin = user?.role == 'admin';
+      });
+    } else {
+      setState(() {
+        _isAdmin = false;
+      });
+    }
   }
 
   void _onSearchChanged() {
@@ -118,23 +140,22 @@ class OrderListPageState extends State<OrderListPage> {
           : Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(20.0), // Increased padding
+                  padding: const EdgeInsets.all(20.0),
                   child: TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
                       labelText: 'Cari Order',
                       border: OutlineInputBorder(
-                        borderRadius:
-                            BorderRadius.circular(12.0), // Rounded corners
+                        borderRadius: BorderRadius.circular(12.0),
                       ),
                       prefixIcon: const Icon(Icons.search),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16.0), // Padding inside the TextField
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 16.0),
                     ),
                     style: const TextStyle(fontSize: 16.0),
                   ),
                 ),
-                const SizedBox(height: 16.0), // Added space
+                const SizedBox(height: 16.0),
                 Expanded(
                   child: _filteredOrders.isEmpty
                       ? const Center(child: Text('No data found'))

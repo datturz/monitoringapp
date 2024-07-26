@@ -40,8 +40,8 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('userId');
-    Navigator.of(context)
-        .pushReplacementNamed('/login'); // Arahkan ke halaman login
+    Navigator.pushReplacementNamed(
+        context, '/login'); // Arahkan ke halaman login
   }
 
   @override

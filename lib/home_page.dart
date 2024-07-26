@@ -1,9 +1,9 @@
-// home_page.dart
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'database_helper.dart'; // Tambahkan import ini jika belum ada
 import 'user_list.dart';
 import 'order_list_page.dart';
 import 'profile_page.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,26 +15,45 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   int? _userId;
+  String? _userRole; // Menyimpan role pengguna
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadUserId();
+    _loadUserIdAndRole();
   }
 
-  Future<void> _loadUserId() async {
+  Future<void> _loadUserIdAndRole() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _userId = prefs.getInt('userId');
-    });
+    final userId = prefs.getInt('userId');
+    if (userId != null) {
+      final user = await DatabaseHelper.instance.getUserById(userId);
+      setState(() {
+        _userId = userId;
+        _userRole = user?.role; // Ambil role dari pengguna
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _userId = null;
+        _userRole = null;
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_userId == null) {
-      // Tampilkan loading atau halaman login jika _userId belum tersedia
+    if (_isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_userId == null) {
+      return const Scaffold(
+        body: Center(child: Text('User not found. Please log in again.')),
       );
     }
 
@@ -46,20 +65,31 @@ class _HomePageState extends State<HomePage> {
         child: _widgetOptions.elementAt(_selectedIndex),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.list),
-            label: 'Order',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'User',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profil',
-          ),
-        ],
+        items: _userRole == 'admin'
+            ? const <BottomNavigationBarItem>[
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.list),
+                  label: 'Order',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.people),
+                  label: 'User',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person),
+                  label: 'Profile',
+                ),
+              ]
+            : const <BottomNavigationBarItem>[
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.list),
+                  label: 'Order',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person),
+                  label: 'Profile',
+                ),
+              ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blue,
         onTap: (index) {
@@ -73,7 +103,7 @@ class _HomePageState extends State<HomePage> {
 
   List<Widget> get _widgetOptions => <Widget>[
         const OrderListPage(),
-        const UserList(),
+        if (_userRole == 'admin') const UserList(),
         if (_userId != null) ProfilePage(userId: _userId!),
       ];
 }

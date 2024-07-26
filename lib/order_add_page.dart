@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'order_model.dart';
 import 'database_helper.dart';
+import 'order_model.dart';
 
 class OrderAddPage extends StatefulWidget {
   final Order? order;
@@ -22,6 +22,7 @@ class OrderAddPageState extends State<OrderAddPage> {
   String? _selectedCustomer;
   String? _status;
   XFile? _productImage;
+  XFile? _progressImage;
   XFile? _progressVideo;
   final ImagePicker _picker = ImagePicker();
   List<String> _customers = [];
@@ -30,21 +31,25 @@ class OrderAddPageState extends State<OrderAddPage> {
   void initState() {
     super.initState();
     _loadCustomers();
-    _checkAdminStatus();
 
     if (widget.order != null) {
-      _selectedCustomer = widget.order?.customerName;
+      final order = widget.order!; // Assign to a non-nullable local variable
+
+      _selectedCustomer = order.customerName;
       _orderDateController.text =
-          widget.order?.orderDate.toLocal().toString().split(' ')[0] ?? '';
-      _totalPriceController.text = widget.order?.totalPrice.toString() ?? '';
-      _status = widget.order?.status;
-      if (widget.order?.items.isNotEmpty ?? false) {
-        final item = widget.order!.items.first;
-        _productNameController.text = item.productName;
-        _quantityController.text = item.quantity.toString();
-        _priceController.text = item.price.toString();
-        // Load images if necessary
-      }
+          order.orderDate.toLocal().toString().split(' ')[0];
+      _totalPriceController.text = order.totalPrice.toString();
+      _status = order.status;
+      _productNameController.text = order.productName ?? '';
+      _quantityController.text = order.quantity?.toString() ?? '';
+      _priceController.text = order.price?.toString() ?? '';
+      _productImage =
+          order.fotoProdukURL != null ? XFile(order.fotoProdukURL!) : null;
+      _progressImage =
+          order.fotoProgressURL != null ? XFile(order.fotoProgressURL!) : null;
+      _progressVideo = order.videoProgressURL != null
+          ? XFile(order.videoProgressURL!)
+          : null;
     }
   }
 
@@ -55,11 +60,10 @@ class OrderAddPageState extends State<OrderAddPage> {
     });
   }
 
-  Future<void> _checkAdminStatus() async {
-    // Implement your logic to check if the user is an admin
-    setState(() {
-      // _isAdmin = true; // Replace with your actual logic
-    });
+  Future<void> _updateFotoProgress(
+      int orderId, String newFotoProgressURL) async {
+    await DatabaseHelper.instance
+        .updateFotoProgress(orderId, newFotoProgressURL);
   }
 
   @override
@@ -203,6 +207,22 @@ class OrderAddPageState extends State<OrderAddPage> {
                   children: [
                     ElevatedButton(
                       onPressed: () async {
+                        final pickedImage = await _picker.pickImage(
+                            source: ImageSource.gallery);
+                        setState(() {
+                          _progressImage = pickedImage;
+                        });
+                      },
+                      child: const Text('Pilih Foto Progress'),
+                    ),
+                    if (_progressImage != null)
+                      Text(' ${_progressImage!.name}'),
+                  ],
+                ),
+                Row(
+                  children: [
+                    ElevatedButton(
+                      onPressed: () async {
                         final pickedVideo = await _picker.pickVideo(
                             source: ImageSource.gallery);
                         setState(() {
@@ -217,7 +237,7 @@ class OrderAddPageState extends State<OrderAddPage> {
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     if (_formKey.currentState?.validate() ?? false) {
                       final newOrder = Order(
                         id: widget.order?.id ??
@@ -229,14 +249,34 @@ class OrderAddPageState extends State<OrderAddPage> {
                             quantity: int.parse(_quantityController.text),
                             price: double.parse(_priceController.text),
                             fotoProduk: _productImage?.path,
-                            fotoProgress: _progressVideo?.path,
-                          ),
+                            fotoProgress: _progressImage?.path,
+                          )
                         ],
                         orderDate: DateTime.parse(_orderDateController.text),
                         totalPrice: double.parse(_totalPriceController.text),
-                        status: _status,
+                        status: _status ?? 'Pending',
+                        productName: _productNameController.text,
+                        quantity: int.parse(_quantityController.text),
+                        price: double.parse(_priceController.text),
+                        fotoProdukURL: _productImage?.path,
+                        fotoProgressURL: _progressImage?.path,
+                        videoProgressURL: _progressVideo?.path,
                       );
-                      Navigator.of(context).pop(newOrder);
+
+                      if (widget.order != null) {
+                        final oldFotoProgressURL = widget.order?.fotoProdukURL;
+                        final newFotoProgressURL = _progressImage?.path;
+                        if (oldFotoProgressURL != newFotoProgressURL) {
+                          await _updateFotoProgress(
+                            widget.order!.id,
+                            newFotoProgressURL ?? '',
+                          );
+                        }
+                        await DatabaseHelper.instance.updateOrder(newOrder);
+                      } else {
+                        await DatabaseHelper.instance.insertOrder(newOrder);
+                      }
+                      Navigator.pop(context);
                     }
                   },
                   child: const Text('Simpan'),
