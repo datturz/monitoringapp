@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class Order {
   final int id;
   final String customerName;
@@ -7,46 +9,47 @@ class Order {
   final String? productName;
   final int? quantity;
   final double? price;
-  final String?
-      nomorFaktur; // Opsional, jika nomor faktur tidak selalu tersedia
+  final String? nomorFaktur; // Opsional
   final String? status;
-  final String?
-      fotoProdukURL; // Opsional, jika foto produk tidak selalu tersedia
-  final String?
-      fotoProgressURL; // Opsional, jika foto progress tidak selalu tersedia
+  final String? fotoProdukURL; // Opsional
+  final String? fotoProgressURL; // Opsional
   final String? videoProgressURL;
 
-  Order(
-      {required this.id,
-      required this.customerName,
-      required this.items,
-      required this.orderDate,
-      required this.totalPrice,
-      this.nomorFaktur,
-      this.status,
-      this.fotoProdukURL,
-      this.fotoProgressURL,
-      this.videoProgressURL,
-      this.productName,
-      this.quantity,
-      this.price});
+  Order({
+    required this.id,
+    required this.customerName,
+    required this.items,
+    required this.orderDate,
+    required this.totalPrice,
+    this.nomorFaktur,
+    this.status,
+    this.fotoProdukURL,
+    this.fotoProgressURL,
+    this.videoProgressURL,
+    this.productName,
+    this.quantity,
+    this.price,
+  });
 
   // Konversi Map ke objek Order
   factory Order.fromMap(Map<String, dynamic> map) {
     return Order(
       id: map['id'],
       customerName: map['customerName'],
-      totalPrice: map['totalPrice'],
+      totalPrice: (map['totalPrice'] as num).toDouble(),
       orderDate: DateTime.parse(map['orderDate']),
       status: map['status'],
       nomorFaktur: map['nomorFaktur'],
       fotoProdukURL: map['fotoProdukURL'],
       fotoProgressURL: map['fotoProgressURL'],
       videoProgressURL: map['videoProgressURL'],
-      items: [], // Items perlu diambil dari tabel terpisahi
+      items: map['items'] != null
+          ? List<OrderItem>.from(
+              map['items'].map((item) => OrderItem.fromMap(item as Map<String, dynamic>)))
+          : [],
       productName: map['productName'],
       quantity: map['quantity'],
-      price: map['price'],
+      price: (map['price'] as num).toDouble(),
     );
   }
 
@@ -62,20 +65,26 @@ class Order {
       'fotoProdukURL': fotoProdukURL,
       'fotoProgressURL': fotoProgressURL,
       'videoProgressURL': videoProgressURL,
+      'items': items.map((item) => item.toMap()).toList(),
       'productName': productName,
       'quantity': quantity,
       'price': price,
     };
   }
+
+  factory Order.fromJson(String source) => Order.fromMap(json.decode(source));
+
+  // Konversi objek Order ke JSON
+  Map<String, dynamic> toJson() => toMap();
 }
 
 class OrderItem {
   final String productName;
   final int quantity;
   final double price;
-  final String? fotoProduk; // Opsional, jika foto produk tidak selalu tersedia
-  final String?
-      fotoProgress; // Opsional, jika foto progress tidak selalu tersedia
+  final String? fotoProduk; // Opsional
+  final String? fotoProgress; // Opsional
+
   OrderItem({
     required this.productName,
     required this.quantity,
@@ -89,7 +98,7 @@ class OrderItem {
     return OrderItem(
       productName: map['productName'],
       quantity: map['quantity'],
-      price: map['price'],
+      price: (map['price'] as num).toDouble(),
       fotoProduk: map['fotoProduk'],
       fotoProgress: map['fotoProgress'],
     );
@@ -105,4 +114,6 @@ class OrderItem {
       'fotoProgress': fotoProgress,
     };
   }
+
+  Map<String, dynamic> toJson() => toMap();
 }

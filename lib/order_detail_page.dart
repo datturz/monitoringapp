@@ -1,9 +1,8 @@
-import 'dart:io';
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
-import 'order_model.dart';
-import 'database_helper.dart';
 import 'package:photo_view/photo_view.dart';
+import 'order_model.dart';
+import 'api_service.dart';
 
 class OrderDetailPage extends StatefulWidget {
   final Order order;
@@ -15,6 +14,7 @@ class OrderDetailPage extends StatefulWidget {
 }
 
 class FullScreenImage extends StatelessWidget {
+  static const String baseUrl = 'http://10.0.2.2:3000';
   final String fotoURL;
   const FullScreenImage({super.key, required this.fotoURL});
   @override
@@ -25,7 +25,7 @@ class FullScreenImage extends StatelessWidget {
         backgroundColor: Colors.black,
       ),
       body: PhotoView(
-        imageProvider: FileImage(File(fotoURL)),
+        imageProvider: NetworkImage(fotoURL), // Menggunakan NetworkImage untuk menampilkan gambar dari URL
       ),
     );
   }
@@ -34,6 +34,7 @@ class FullScreenImage extends StatelessWidget {
 class _OrderDetailPageState extends State<OrderDetailPage> {
   List<OrderItem> _orderItems = [];
   List<Map<String, dynamic>> _fotoProgressHistory = [];
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
@@ -43,16 +44,15 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 
   Future<void> _loadOrderItems() async {
-    final items =
-        await DatabaseHelper.instance.getOrderItemsByOrderId(widget.order.id);
+    final items = await _apiService.getOrderItemsByOrderId(widget.order.id);
+    debugPrint('$items');
     setState(() {
       _orderItems = items;
     });
   }
 
   Future<void> _loadFotoProgressHistory() async {
-    final history =
-        await DatabaseHelper.instance.getFotoProgressHistory(widget.order.id);
+    final history = await _apiService.getFotoProgressHistory(widget.order.id);
     setState(() {
       _fotoProgressHistory = history;
     });
@@ -67,6 +67,15 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   String intlDate(DateTime date) {
     final format = DateFormat('dd MMMM yyyy, hh:mm a');
     return format.format(date);
+  }
+  String formatDateFromTimestamp(dynamic timestamp) {
+    if (timestamp is String) {
+      // Handle if timestamp is a string
+      timestamp = int.tryParse(timestamp) ?? 0; // Or handle as appropriate
+    }
+    final DateTime date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    final DateFormat formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
+    return formatter.format(date);
   }
 
   @override
@@ -119,10 +128,12 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                 itemCount: _fotoProgressHistory.length,
                 separatorBuilder: (context, index) => const Divider(height: 16),
                 itemBuilder: (context, index) {
+                  debugPrint('$_fotoProgressHistory[index]');
                   final fotoURL =
                       _fotoProgressHistory[index]['newFotoProgressURL'];
                   final isSuccess = fotoURL != null;
-                  String updateDate = _fotoProgressHistory[index]['updateDate'];
+                 dynamic timestamp = _fotoProgressHistory[index]['updateDate'];
+                 final String formattedDate = formatDateFromTimestamp(timestamp);
                   return ListTile(
                     leading: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -139,7 +150,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       ],
                     ),
                     title: Text(
-                        '${intlDate(DateTime.parse(updateDate))} - ${_fotoProgressHistory[index]['status']} '),
+                        '$formattedDate - ${_fotoProgressHistory[index]['status']} '),
                     subtitle: isSuccess
                         ? GestureDetector(
                             onTap: () {
@@ -154,7 +165,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                             child: SizedBox(
                               width: 80,
                               height: 80,
-                              child: Image.file(File(fotoURL)),
+                              child: Image.network(fotoURL), // Menggunakan Image.network untuk menampilkan gambar dari URL
                             ),
                           )
                         : null,

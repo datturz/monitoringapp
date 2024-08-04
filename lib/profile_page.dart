@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'database_helper.dart'; // Ganti dengan path yang sesuai
+import 'api_service.dart'; // Ganti dengan path yang sesuai
 import 'user_model.dart'; // Ganti dengan path yang sesuai
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -15,7 +15,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   User? _user;
   bool _isLoading = true;
-
+  final ApiService _apiService = ApiService();
   @override
   void initState() {
     super.initState();
@@ -24,9 +24,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadUserProfile() async {
     try {
-      final user = await DatabaseHelper.instance.getUserProfile(widget.userId);
+      final userResponse = await _apiService.getUserById(widget.userId);
       setState(() {
-        _user = user;
+        _user = User.fromMap(userResponse);
         _isLoading = false;
       });
     } catch (e) {
@@ -40,8 +40,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('userId');
-    Navigator.pushReplacementNamed(
-        context, '/login'); // Arahkan ke halaman login
+    Navigator.pushReplacementNamed(context, '/login'); // Arahkan ke halaman login
   }
 
   @override
@@ -67,7 +66,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     children: [
                       CircleAvatar(
                         radius: 50,
-                        backgroundImage: NetworkImage(_user!.foto),
+                        backgroundImage: _user!.foto.isNotEmpty
+                            ? NetworkImage(_user!.foto)
+                            : null, // Gunakan null jika foto tidak ada
                       ),
                       const SizedBox(height: 16.0),
                       Text(

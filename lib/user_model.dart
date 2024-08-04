@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class User {
   final int? id; // Tambahkan properti id
   final String email;
@@ -23,12 +25,20 @@ class User {
     };
   }
 
-  static User fromMap(Map<String, dynamic> first) {
+  // Konversi objek User ke JSON
+  String toJson() => json.encode(toMap());
+
+  // Konversi dari Map ke objek User
+  factory User.fromMap(Map<String, dynamic> map) {
     return User(
-        id: first['id'],
-        email: first['email'],
-        password: first['password'],
-        role: first['role'],
-        foto: first['foto']);
+      id: map['id'],
+      email: map['email'],
+      password: map['password'],
+      role: map['role'],
+      foto: map['foto'],
+    );
   }
+
+  // Konversi dari JSON string ke objek User
+  static User fromJson(String source) => User.fromMap(json.decode(source));
 }

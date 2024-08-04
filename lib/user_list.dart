@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'database_helper.dart';
+import 'api_service.dart'; // Update import untuk ApiService
 import 'user_model.dart';
 import 'add_user_page.dart';
 
@@ -19,15 +19,18 @@ class _UserListState extends State<UserList> {
   @override
   void initState() {
     super.initState();
-    _users = DatabaseHelper.instance.getAllUsers();
-    _users
-        .then((users) => _filteredUsers = users); // Inisialisasi _filteredUsers
+    _loadUsers(); // Inisialisasi daftar pengguna
+  }
+
+  void _loadUsers() {
+    _users = ApiService().getAllCustomers(); // Menggunakan ApiService
+    _users.then((users) => setState(() {
+      _filteredUsers = users;
+    }));
   }
 
   void refreshUserList() {
-    setState(() {
-      _users = DatabaseHelper.instance.getAllUsers();
-    });
+    _loadUsers(); // Memuat ulang daftar pengguna
   }
 
   @override
@@ -78,8 +81,7 @@ class _UserListState extends State<UserList> {
                         child: Row(
                           children: [
                             CircleAvatar(
-                              backgroundImage: NetworkImage(user
-                                  .foto), // Asumsikan user.foto adalah URL gambar
+                              backgroundImage: NetworkImage(user.foto),
                               radius: 25,
                             ),
                             const SizedBox(width: 16),
@@ -98,9 +100,6 @@ class _UserListState extends State<UserList> {
                               icon: const Icon(Icons.delete, color: Colors.red),
                               onPressed: () async {
                                 // Logika hapus pengguna
-                                // Dapatkan ID pengguna yang ingin dihapus.
-                                int? userId = user.id;
-                                // Tampilkan dialog konfirmasi (opsional tapi direkomendasikan).
                                 bool confirmDelete = await showDialog(
                                   context: context,
                                   builder: (BuildContext context) {
@@ -125,19 +124,16 @@ class _UserListState extends State<UserList> {
                                 );
                                 // Jika pengguna mengkonfirmasi, hapus pengguna.
                                 if (confirmDelete == true) {
-                                  int result = await DatabaseHelper.instance
-                                      .deleteUser(userId!);
-                                  if (result > 0) {
-                                    // Pengguna berhasil dihapus, perbarui UI atau lakukan tindakan lain yang diperlukan.
-                                    // Misalnya, kamu bisa memuat ulang daftar pengguna.
+                                  try {
+                                    // Hapus pengguna melalui ApiService
+                                    await ApiService().deleteUser(user.id!);
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                           content: Text(
                                               'Pengguna berhasil dihapus')),
                                     );
                                     refreshUserList();
-                                  } else {
-                                    // Terjadi kesalahan saat menghapus pengguna.
+                                  } catch (e) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                           content:
@@ -176,45 +172,3 @@ class _UserListState extends State<UserList> {
     );
   }
 }
-
-
-
-
-
-
-// ListTile(
-//                     // ... (kita akan menambahkan detail pengguna di sini)
-//                         title: Text(user.email),
-//                         subtitle: Text('Peran: ${user.role}'),
-//                         trailing: IconButton(
-//                           icon: const Icon(Icons.delete),
-//                           onPressed: () async {
-//                             // Tambahkan logika untuk menghapus pengguna di sini
-//                             bool confirmDelete = await showDialog(
-//                               context: context,
-//                               builder: (context) => AlertDialog(
-//                                 title: const Text('Konfirmasi Hapus'),
-//                                 content: const Text('Apakah Anda yakin ingin menghapus pengguna ini?'),
-//                                 actions: [
-//                                   TextButton(
-//                                     onPressed: () => Navigator.pop(context, false),
-//                                     child: const Text('Batal'),
-//                                   ),
-//                                   TextButton(
-//                                     onPressed: () => Navigator.pop(context, true),
-//                                     child: const Text('Hapus'),
-//                                   ),
-//                                 ],
-//                               ),
-//                             ) ?? false;
-//                             if (confirmDelete) {
-//                               // Hapus pengguna dari database
-//                               await DatabaseHelper.instance.deleteUser(user.id);
-//                               // Perbarui daftar pengguna
-//                               setState(() {
-//                                 _users = DatabaseHelper.instance.getAllUsers();
-//                               });
-//                             }
-//                           },
-//                         ),
-//                     );

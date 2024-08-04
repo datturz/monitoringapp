@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'database_helper.dart';
-import 'user_model.dart';
+import 'api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final _emailController = TextEditingController();
@@ -102,23 +101,28 @@ class _LoginPageState extends State<LoginPage> {
                   }
                   widget.onLoginProcess(true);
 
-                  Map<String, dynamic>? adminInfo =
-                      await DatabaseHelper.instance.isAdmin(email);
-
-                  if (adminInfo != null) {
-                    debugPrint('Login berhasil sebagai admin!');
-                    _saveUserId(adminInfo['id']); // Simpan userId 0 untuk admin
-                    Navigator.pushReplacementNamed(
-                        context, '/home'); // Arahkan ke halaman home
-                  } else {
-                    User? user =
-                        await DatabaseHelper.instance.getUserByEmail(email);
-                    debugPrint('User ditemukan: ${user != null}');
-                    if (user != null && user.password == password) {
-                      debugPrint('Login berhasil sebagai pengguna!');
-                      _saveUserId(user.id);
-                      Navigator.pushReplacementNamed(
-                          context, '/home'); // Arahkan ke halaman home
+                  try {
+                    bool success = await ApiService.login(email, password);
+                    if (success) {
+                      int? userId = await ApiService.getUserIdByEmail(email);
+                      if (userId != null) {
+                        await _saveUserId(userId);
+                        widget.onLoginSuccess(context);
+                      } else {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Login Gagal'),
+                            content: const Text('User ID tidak ditemukan.'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('OK'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
                     } else {
                       showDialog(
                         context: context,
@@ -134,6 +138,20 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       );
                     }
+                  } catch (e) {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Error'),
+                        content: Text('Terjadi kesalahan: $e'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
                   }
                   widget.onLoginProcess(false);
                 },
@@ -147,10 +165,8 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Future<void> _saveUserId(int? userId) async {
+  Future<void> _saveUserId(int userId) async {
     final prefs = await SharedPreferences.getInstance();
-    if (userId != null) {
-      await prefs.setInt('userId', userId);
-    }
+    await prefs.setInt('userId', userId);
   }
 }

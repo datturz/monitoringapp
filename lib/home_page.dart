@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'database_helper.dart'; // Tambahkan import ini jika belum ada
+import 'api_service.dart';
 import 'user_list.dart';
 import 'order_list_page.dart';
 import 'profile_page.dart';
+import 'login_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,7 +16,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   int? _userId;
-  String? _userRole; // Menyimpan role pengguna
+  String? _userRole;
   bool _isLoading = true;
 
   @override
@@ -28,12 +29,21 @@ class _HomePageState extends State<HomePage> {
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getInt('userId');
     if (userId != null) {
-      final user = await DatabaseHelper.instance.getUserById(userId);
-      setState(() {
-        _userId = userId;
-        _userRole = user?.role; // Ambil role dari pengguna
-        _isLoading = false;
-      });
+      try {
+        final user = await ApiService().getUserById(userId);
+        setState(() {
+          _userId = userId;
+          _userRole = user['role'];
+          _isLoading = false;
+        });
+      } catch (e) {
+        print('Error loading user: $e');
+        setState(() {
+          _userId = null;
+          _userRole = null;
+          _isLoading = false;
+        });
+      }
     } else {
       setState(() {
         _userId = null;
@@ -41,6 +51,16 @@ class _HomePageState extends State<HomePage> {
         _isLoading = false;
       });
     }
+  }
+
+  void _handleLoginSuccess(BuildContext context) {
+    _loadUserIdAndRole();
+  }
+
+  void _handleLoginProcess(bool isLoading) {
+    setState(() {
+      _isLoading = isLoading;
+    });
   }
 
   @override
@@ -52,8 +72,11 @@ class _HomePageState extends State<HomePage> {
     }
 
     if (_userId == null) {
-      return const Scaffold(
-        body: Center(child: Text('User not found. Please log in again.')),
+      return Scaffold(
+        body: LoginPage(
+          onLoginSuccess: _handleLoginSuccess,
+          onLoginProcess: _handleLoginProcess,
+        ),
       );
     }
 
@@ -65,7 +88,7 @@ class _HomePageState extends State<HomePage> {
         child: _widgetOptions.elementAt(_selectedIndex),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: _userRole == 'admin'
+        items: _userRole == 'Admin'
             ? const <BottomNavigationBarItem>[
                 BottomNavigationBarItem(
                   icon: Icon(Icons.list),
@@ -103,7 +126,7 @@ class _HomePageState extends State<HomePage> {
 
   List<Widget> get _widgetOptions => <Widget>[
         const OrderListPage(),
-        if (_userRole == 'admin') const UserList(),
+        if (_userRole == 'Admin') const UserList(),
         if (_userId != null) ProfilePage(userId: _userId!),
       ];
 }

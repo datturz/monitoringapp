@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'order_model.dart';
-import 'user_model.dart';
-import 'database_helper.dart';
+import 'api_service.dart';
 import 'order_detail_page.dart';
 import 'order_add_page.dart';
+import 'order_model.dart';
 
 class OrderListPage extends StatefulWidget {
   const OrderListPage({super.key});
@@ -19,32 +18,63 @@ class OrderListPageState extends State<OrderListPage> {
   bool _isAdmin = false;
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
     super.initState();
-    _loadOrders();
-    _checkAdminStatus();
+    _initialize();
     _searchController.addListener(_onSearchChanged);
   }
+  Future<void> _initialize() async {
+    await _checkAdminStatus();
+    _loadOrders();
+  }
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _checkAdminStatus();
+    // Reload orders when returning to this page
+    // _loadOrders();
+  }
+  Future<void> _checkAdminStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('userId');
 
+    if (userId != null) {
+      final userResponse = await _apiService.getUserById(userId);
+      final user = Map<String, dynamic>.from(userResponse);
+      debugPrint(user['role']);
+      setState(() {
+        _isAdmin = user['role'] == 'Admin' ? true : false;
+      });
+    } else {
+      setState(() {
+        _isAdmin = false;
+      });
+    }
+  }
   Future<void> _loadOrders() async {
     setState(() {
       _isLoading = true;
     });
-
+    
     try {
       List<Order> orders;
+      debugPrint('$_isAdmin');
       if (_isAdmin) {
-        orders = await DatabaseHelper.instance.getAllOrders();
+        final response = await _apiService.getOrders();
+        orders = List<Order>.from(response.map((data) => Order.fromMap(data)));
       } else {
         final prefs = await SharedPreferences.getInstance();
         final userId = prefs.getInt('userId');
-        User? users = await DatabaseHelper.instance.getUserById(userId!);
-        orders = await DatabaseHelper.instance.getOrdersByEmail(users!.email);
+        final userResponse = await _apiService.getUserById(userId!);
+        final user = Map<String, dynamic>.from(userResponse);
+        final orderResponse = await _apiService.getOrdersByEmail(user['email']);
+        print('Order response by email: $orderResponse'); // Cek format JSON
+        orders = List<Order>.from(orderResponse.map((data) => Order.fromMap(data)));
       }
 
-      if (orders.isEmpty) {}
       setState(() {
         _orders = orders;
         _filteredOrders = orders;
@@ -60,21 +90,7 @@ class OrderListPageState extends State<OrderListPage> {
     }
   }
 
-  Future<void> _checkAdminStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getInt('userId');
 
-    if (userId != null) {
-      final user = await DatabaseHelper.instance.getUserById(userId);
-      setState(() {
-        _isAdmin = user?.role == 'admin';
-      });
-    } else {
-      setState(() {
-        _isAdmin = false;
-      });
-    }
-  }
 
   void _onSearchChanged() {
     _searchOrders(_searchController.text);
@@ -96,7 +112,7 @@ class OrderListPageState extends State<OrderListPage> {
   }
 
   void _showAddOrderPage() async {
-    final newOrder = await Navigator.push<Order>(
+    final newOrder = await Navigator.push<Order?>(
       context,
       MaterialPageRoute(
         builder: (context) => const OrderAddPage(),
@@ -104,13 +120,13 @@ class OrderListPageState extends State<OrderListPage> {
     );
 
     if (newOrder != null) {
-      await DatabaseHelper.instance.insertOrder(newOrder);
-      _loadOrders();
+      await _apiService.addOrder(newOrder.toMap());
+      _loadOrders(); // Reload orders after adding a new order
     }
   }
 
   void _showEditOrderPage(Order order) async {
-    final editedOrder = await Navigator.push<Order>(
+    final editedOrder = await Navigator.push<Order?>(
       context,
       MaterialPageRoute(
         builder: (context) => OrderAddPage(order: order),
@@ -118,8 +134,8 @@ class OrderListPageState extends State<OrderListPage> {
     );
 
     if (editedOrder != null) {
-      await DatabaseHelper.instance.updateOrder(editedOrder);
-      _loadOrders();
+      await _apiService.updateOrder(order.id, editedOrder.toMap());
+      _loadOrders(); // Reload orders after editing an existing order
     }
   }
 
@@ -236,26 +252,14 @@ class OrderListPageState extends State<OrderListPage> {
                                               );
 
                                               if (confirmDelete == true) {
-                                                int result =
-                                                    await DatabaseHelper
-                                                        .instance
-                                                        .deleteOrder(order.id);
-                                                if (result > 0) {
-                                                  _loadOrders();
-                                                  ScaffoldMessenger.of(context)
-                                                      .showSnackBar(
-                                                    const SnackBar(
-                                                        content: Text(
-                                                            'Order berhasil dihapus')),
-                                                  );
-                                                } else {
-                                                  ScaffoldMessenger.of(context)
-                                                      .showSnackBar(
-                                                    const SnackBar(
-                                                        content: Text(
-                                                            'Gagal menghapus order')),
-                                                  );
-                                                }
+                                                await _apiService.deleteOrder(order.id);
+                                                _loadOrders(); // Reload orders after deleting
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  const SnackBar(
+                                                      content: Text(
+                                                          'Order berhasil dihapus')),
+                                                );
                                               }
                                             },
                                           ),

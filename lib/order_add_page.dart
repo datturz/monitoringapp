@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'database_helper.dart';
+import 'api_service.dart'; // Pastikan ApiService sudah diimport
 import 'order_model.dart';
+import 'dart:io';
 
 class OrderAddPage extends StatefulWidget {
   final Order? order;
@@ -26,6 +27,7 @@ class OrderAddPageState extends State<OrderAddPage> {
   XFile? _progressVideo;
   final ImagePicker _picker = ImagePicker();
   List<String> _customers = [];
+  final ApiService _apiService = ApiService(); // Inisialisasi ApiService
 
   @override
   void initState() {
@@ -33,37 +35,37 @@ class OrderAddPageState extends State<OrderAddPage> {
     _loadCustomers();
 
     if (widget.order != null) {
-      final order = widget.order!; // Assign to a non-nullable local variable
+      final order = widget.order!;
 
       _selectedCustomer = order.customerName;
-      _orderDateController.text =
-          order.orderDate.toLocal().toString().split(' ')[0];
+      _orderDateController.text = order.orderDate.toLocal().toString().split(' ')[0];
       _totalPriceController.text = order.totalPrice.toString();
       _status = order.status;
       _productNameController.text = order.productName ?? '';
       _quantityController.text = order.quantity?.toString() ?? '';
       _priceController.text = order.price?.toString() ?? '';
-      _productImage =
-          order.fotoProdukURL != null ? XFile(order.fotoProdukURL!) : null;
-      _progressImage =
-          order.fotoProgressURL != null ? XFile(order.fotoProgressURL!) : null;
-      _progressVideo = order.videoProgressURL != null
-          ? XFile(order.videoProgressURL!)
-          : null;
+      _productImage = null;
+      _progressImage =null;
+      _progressVideo =null;
     }
   }
 
   Future<void> _loadCustomers() async {
-    final customers = await DatabaseHelper.instance.getAllCustomers();
+    final customers = await _apiService.getAllCustomers();
     setState(() {
       _customers = customers.map((user) => user.email).toList();
     });
   }
 
-  Future<void> _updateFotoProgress(
-      int orderId, String newFotoProgressURL, String status) async {
-    await DatabaseHelper.instance
-        .updateFotoProgress(orderId, newFotoProgressURL, status);
+  Future<String?> _uploadFile(XFile? file) async {
+    if (file == null) return null;
+    final uploadedUrl = await _apiService.uploadFile(File(file.path));
+    return uploadedUrl;
+  }
+
+  Future<void> _updateFotoProgress(int orderId, String newFotoProgressURL, String status) async {
+    debugPrint(newFotoProgressURL);
+    await _apiService.updateFotoProgress(orderId, newFotoProgressURL, status);
   }
 
   @override
@@ -82,8 +84,7 @@ class OrderAddPageState extends State<OrderAddPage> {
               children: <Widget>[
                 DropdownButtonFormField<String>(
                   value: _selectedCustomer,
-                  decoration:
-                      const InputDecoration(labelText: 'Nama Pelanggan'),
+                  decoration: const InputDecoration(labelText: 'Nama Pelanggan'),
                   items: _customers
                       .map((customer) => DropdownMenuItem(
                             value: customer,
@@ -119,8 +120,7 @@ class OrderAddPageState extends State<OrderAddPage> {
                       lastDate: DateTime(2101),
                     );
                     if (pickedDate != null) {
-                      _orderDateController.text =
-                          "${pickedDate.toLocal()}".split(' ')[0];
+                      _orderDateController.text = pickedDate.toLocal().toString().split(' ')[0];
                     }
                   },
                 ),
@@ -190,97 +190,109 @@ class OrderAddPageState extends State<OrderAddPage> {
                 ),
                 Row(
                   children: [
-                    ElevatedButton(
-                      onPressed: () async {
-                        final pickedImage = await _picker.pickImage(
-                            source: ImageSource.gallery);
-                        setState(() {
-                          _productImage = pickedImage;
-                        });
-                      },
-                      child: const Text('Pilih Foto Produk'),
+                    Flexible(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final pickedImage = await _picker.pickImage(source: ImageSource.gallery);
+                          setState(() {
+                            _productImage = pickedImage;
+                          });
+                        },
+                        child: const Text('Pilih Foto Produk'),
+                      ),
                     ),
-                    if (_productImage != null) Text(' ${_productImage!.name}'),
+                    if (_productImage != null) Flexible(child: Text(' ${_productImage?.name ?? ''}')),
                   ],
                 ),
                 Row(
                   children: [
-                    ElevatedButton(
-                      onPressed: () async {
-                        final pickedImage = await _picker.pickImage(
-                            source: ImageSource.gallery);
-                        setState(() {
-                          _progressImage = pickedImage;
-                        });
-                      },
-                      child: const Text('Pilih Foto Progress'),
+                    Flexible(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final pickedImage = await _picker.pickImage(source: ImageSource.gallery);
+                          setState(() {
+                            _progressImage = pickedImage;
+                          });
+                        },
+                        child: const Text('Pilih Foto Progress'),
+                      ),
                     ),
-                    if (_progressImage != null)
-                      Text(' ${_progressImage!.name}'),
+                    if (_progressImage != null) Flexible(child: Text(' ${_progressImage?.name ?? ''}')),
+                    // if (widget.order?.fotoProgressURL != null) Flexible(child: Text('${widget.order!.fotoProgressURL}')),
                   ],
                 ),
                 Row(
                   children: [
-                    ElevatedButton(
-                      onPressed: () async {
-                        final pickedVideo = await _picker.pickVideo(
-                            source: ImageSource.gallery);
-                        setState(() {
-                          _progressVideo = pickedVideo;
-                        });
-                      },
-                      child: const Text('Pilih Video Progress'),
+                    Flexible(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final pickedVideo = await _picker.pickVideo(source: ImageSource.gallery);
+                          setState(() {
+                            _progressVideo = pickedVideo;
+                          });
+                        },
+                        child: const Text('Pilih Video Progress'),
+                      ),
                     ),
-                    if (_progressVideo != null)
-                      Text(' ${_progressVideo!.name}'),
+                    if (_progressVideo != null) Flexible(child: Text(' ${_progressVideo?.name ?? ''}')),
+                    // if (widget.order?.videoProgressURL != null) Flexible(child: Text(' ${widget.order!.videoProgressURL}')),
                   ],
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: () async {
                     if (_formKey.currentState?.validate() ?? false) {
-                      final newOrder = Order(
-                        id: widget.order?.id ??
-                            DateTime.now().millisecondsSinceEpoch,
-                        customerName: _selectedCustomer ?? 'Unknown',
-                        items: [
-                          OrderItem(
-                            productName: _productNameController.text,
-                            quantity: int.parse(_quantityController.text),
-                            price: double.parse(_priceController.text),
-                            fotoProduk: _productImage?.path,
-                            fotoProgress: _progressImage?.path,
-                          )
+                      String? productImageUrl;
+                        if (_productImage != null) {
+                            productImageUrl = await _uploadFile(_productImage);
+                        }
+                      String? progressImageUrl;
+                        if (_progressImage != null) {
+                            progressImageUrl = await _uploadFile(_progressImage);
+                        }
+                      String? progressVideoUrl;
+                        if (_progressVideo != null){
+                            progressVideoUrl = await _uploadFile(_progressVideo);
+                        }
+                      final newOrder = {
+                        'id': widget.order?.id ?? DateTime.now().millisecondsSinceEpoch,
+                        'customerName': _selectedCustomer ?? 'Unknown',
+                        'items': [
+                          {
+                            'productName': _productNameController.text,
+                            'quantity': int.parse(_quantityController.text),
+                            'price': double.parse(_priceController.text),
+                            'fotoProduk': productImageUrl,
+                            'fotoProgress': progressImageUrl,
+                          }
                         ],
-                        orderDate: DateTime.parse(_orderDateController.text),
-                        totalPrice: double.parse(_totalPriceController.text),
-                        status: _status ?? 'Pending',
-                        productName: _productNameController.text,
-                        quantity: int.parse(_quantityController.text),
-                        price: double.parse(_priceController.text),
-                        fotoProdukURL: _productImage?.path,
-                        fotoProgressURL: _progressImage?.path,
-                        videoProgressURL: _progressVideo?.path,
-                      );
+                        'orderDate': DateTime.parse(_orderDateController.text).toIso8601String(),
+                        'totalPrice': double.parse(_totalPriceController.text),
+                        'productName': _productNameController.text,
+                        'quantity': int.parse(_quantityController.text),
+                        'price': double.parse(_priceController.text),
+                        'status': _status ?? 'Pending',
+                        'fotoProdukURL': productImageUrl,
+                        'fotoProgressURL': progressImageUrl,
+                        'videoProgressURL': progressVideoUrl,
+                      };
 
                       if (widget.order != null) {
-                        final oldFotoProgressURL = widget.order?.fotoProdukURL;
-                        final newFotoProgressURL = _progressImage?.path;
+                        final oldFotoProgressURL = widget.order?.fotoProgressURL ?? '';
+                        final newFotoProgressURL = progressImageUrl;
+                        debugPrint('oldddft: $oldFotoProgressURL : $newFotoProgressURL');
                         if (oldFotoProgressURL != newFotoProgressURL) {
-                          await _updateFotoProgress(
-                              widget.order!.id,
-                              newFotoProgressURL ?? '',
-                              widget.order!.status ?? '');
+                          await _updateFotoProgress(widget.order!.id, newFotoProgressURL!, widget.order!.status ?? '');
                         }
-                        await DatabaseHelper.instance.updateOrder(newOrder);
+                        await _apiService.updateOrder(widget.order!.id, newOrder);
                       } else {
-                        await DatabaseHelper.instance.insertOrder(newOrder);
+                        await _apiService.addOrder(newOrder);
                       }
                       Navigator.pop(context);
                     }
                   },
                   child: const Text('Simpan'),
-                ),
+                )
               ],
             ),
           ),
